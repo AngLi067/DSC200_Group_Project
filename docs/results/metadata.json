@@ -1,0 +1,42 @@
+{
+  "dataset": "Retailrocket e-commerce dataset",
+  "n_events": 2756101,
+  "event_counts": {
+    "view": 2664312,
+    "addtocart": 69332,
+    "transaction": 22457
+  },
+  "n_users": 1407580,
+  "n_items": 235061,
+  "train_catalog_items": 212916,
+  "train_fraction_requested": 0.8,
+  "train_events": 2204881,
+  "test_events": 551220,
+  "cutoff_timestamp_ms": 1439871811966,
+  "train_interaction_pairs": 1713175,
+  "users_with_train_history": 1123767,
+  "users_with_at_least_2_train_interactions": 228093,
+  "users_with_at_least_5_train_interactions": 31880,
+  "train_interactions_per_user_with_history": {
+    "median": 1.0,
+    "p25": 1.0,
+    "p75": 1.0
+  },
+  "test_target_pairs": 438135,
+  "event_level_availability_asof_coverage": 0.8070517009354882,
+  "catalog_availability_asof_coverage_at_cutoff": 0.7767600750443502,
+  "test_target_availability_asof_coverage_at_cutoff": 0.8644002419345636,
+  "test_target_known_unavailable_rate_at_cutoff": 0.4894857468763532,
+  "availability_values": {
+    "0": "unavailable",
+    "1": "available",
+    "-1": "unknown"
+  },
+  "event_weights": {
+    "view": 1.0,
+    "addtocart": 3.0,
+    "transaction": 5.0
+  },
+  "availability_cutoff_rule": "latest available-property timestamp <= global chronological train cutoff",
+  "preparation_runtime_seconds": 45.664
+}

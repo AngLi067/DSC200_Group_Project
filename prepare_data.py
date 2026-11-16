@@ -22,9 +22,13 @@ def csv_rows(path: Path):
 
 def count_data_lines(path: Path) -> int:
     newlines = 0
+    last_byte = b""
     with path.open("rb") as stream:
         while chunk := stream.read(8 * 1024 * 1024):
             newlines += chunk.count(b"\n")
+            last_byte = chunk[-1:]
+    if last_byte and last_byte != b"\n":
+        newlines += 1
     return max(0, newlines - 1)
 
 
@@ -33,15 +37,18 @@ def load_events(path: Path) -> tuple[np.ndarray, dict[str, int]]:
     dtype = np.dtype([("timestamp", "<i8"), ("visitor", "<i4"), ("item", "<i4"), ("weight", "<f4")])
     events = np.empty(count, dtype=dtype)
     event_counts: dict[str, int] = {}
+    parsed = 0
     for index, row in enumerate(csv_rows(path)):
         event_name = row["event"]
         if event_name not in EVENT_WEIGHTS:
             raise ValueError(f"Unknown event type: {event_name}")
         events[index] = (int(row["timestamp"]), int(row["visitorid"]), int(row["itemid"]), EVENT_WEIGHTS[event_name])
         event_counts[event_name] = event_counts.get(event_name, 0) + 1
-    if len(events) != count:
-        raise ValueError(f"Expected {count} event rows but parsed {len(events)}")
-    return events, event_counts
+        parsed += 1
+    if parsed == 0:
+        raise ValueError("events.csv contains no usable events")
+    # DictReader skips blank lines, so physical lines are an upper bound.
+    return events[:parsed], event_counts
 
 
 def load_availability(data_dir: Path) -> np.ndarray:
@@ -103,6 +110,8 @@ def main() -> None:
     cutoff = int(np.quantile(events["timestamp"], args.train_fraction))
     is_train = events["timestamp"] <= cutoff
     is_test = ~is_train
+    if not is_train.any() or not is_test.any():
+        raise ValueError("Chronological split requires events on both sides of the cutoff; check timestamp ties")
     user_ids = np.unique(events["visitor"])
     item_ids = np.unique(events["item"])
     event_user_rows = np.searchsorted(user_ids, events["visitor"])
@@ -158,6 +167,7 @@ def main() -> None:
         "event_counts": event_counts,
         "n_users": int(user_ids.size),
         "n_items": int(item_ids.size),
+        "train_catalog_items": int(np.count_nonzero(interactions.getnnz(axis=0))),
         "train_fraction_requested": args.train_fraction,
         "train_events": int(is_train.sum()),
         "test_events": int(is_test.sum()),

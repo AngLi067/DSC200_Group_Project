@@ -1,0 +1,27 @@
+{
+  "model": "popularity",
+  "k": 10,
+  "raw": {
+    "users_evaluated": 24735,
+    "recall@10": 0.0048533329706330975,
+    "ndcg@10": 0.00330069614488308,
+    "catalog_items_recommended": 10,
+    "catalog_coverage": 4.25421486337589e-05,
+    "recommendation_slots_filled": 247350,
+    "unavailable_recommendation_rate": 0.5,
+    "unknown_availability_recommendation_rate": 0.0
+  },
+  "known_unavailable_filtered": {
+    "users_evaluated": 24735,
+    "recall@10": 0.0063647120948305816,
+    "ndcg@10": 0.003966832030677162,
+    "catalog_items_recommended": 10,
+    "catalog_coverage": 4.25421486337589e-05,
+    "recommendation_slots_filled": 247350,
+    "unavailable_recommendation_rate": 0.0,
+    "unknown_availability_recommendation_rate": 0.0
+  },
+  "filter_rule": "remove items whose latest availability state at the train cutoff is 0; retain unknown states",
+  "filtered_list_fallback": "training-item popularity fills remaining slots with available or unknown items; unfilled slots are -1",
+  "runtime_seconds_including_evaluation": 1.542
+}

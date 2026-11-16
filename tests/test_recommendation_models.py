@@ -4,7 +4,7 @@ import numpy as np
 from scipy.sparse import csr_matrix
 
 from prepare_data import asof_indices
-from recommendation_models import evaluate, filter_known_unavailable
+from recommendation_models import evaluate, filter_known_unavailable, popularity_ranking
 
 
 class AvailabilityTests(unittest.TestCase):
@@ -44,6 +44,32 @@ class AvailabilityTests(unittest.TestCase):
         self.assertEqual(result["recall@2"], 0.0)
         self.assertEqual(result["unavailable_recommendation_rate"], 0.5)
         self.assertEqual(result["unknown_availability_recommendation_rate"], 0.5)
+
+    def test_filter_deduplicates_and_pads_when_eligible_catalog_is_small(self):
+        result = filter_known_unavailable(
+            np.array([[1, 1, 2, -1]]), np.array([0, 1, -1]), np.array([0, 1, 2]), 4
+        )
+        np.testing.assert_array_equal(result, [[1, 2, -1, -1]])
+
+    def test_all_unavailable_items_leave_empty_slots(self):
+        result = filter_known_unavailable(
+            np.array([[0, 1]]), np.array([0, 0]), np.array([0, 1]), 2
+        )
+        np.testing.assert_array_equal(result, [[-1, -1]])
+
+    def test_metrics_use_original_rank_and_known_relevance(self):
+        targets = csr_matrix(([1.0, 1.0], ([0, 0], [1, 3])), shape=(1, 4))
+        result = evaluate(np.array([[1, 0, 3]]), np.array([0]), targets, np.ones(4), 3)
+        self.assertEqual(result["recall@3"], 1.0)
+        self.assertAlmostEqual(result["ndcg@3"], 1.5 / (1 + 1 / np.log2(3)))
+        padded = evaluate(np.array([[-1, 1]]), np.array([0]), targets, np.ones(4), 2)
+        self.assertEqual(padded["recall@2"], 0.5)
+        self.assertAlmostEqual(padded["ndcg@2"], (1 / np.log2(3)) / (1 + 1 / np.log2(3)))
+        self.assertEqual(padded["recommendation_slots_filled"], 1)
+
+    def test_popularity_excludes_future_only_items_and_breaks_ties_by_id(self):
+        train = csr_matrix([[2.0, 2.0, 0.0, 4.0]])
+        np.testing.assert_array_equal(popularity_ranking(train), [3, 0, 1])
 
 
 if __name__ == "__main__":

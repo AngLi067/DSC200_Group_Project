@@ -1,0 +1,24 @@
+{
+  "split_cutoff_timestamp_ms": 1439871811966,
+  "users_evaluated": 24735,
+  "catalog_availability_coverage_at_cutoff": 0.7767600750443502,
+  "test_target_availability_coverage_at_cutoff": 0.8644002419345636,
+  "test_target_known_unavailable_rate_at_cutoff": 0.4894857468763532,
+  "unknown_items_remain_eligible": true,
+  "candidate_catalog_rule": "items with at least one training interaction; previously seen items remain eligible",
+  "train_catalog_items": 212916,
+  "target_rule": "all unique post-cutoff user-item pairs for users with history and targets, including future-only items",
+  "catalog_coverage_denominator": 235061,
+  "parameters": {
+    "k": 10,
+    "candidate_k": 100,
+    "neighbors": 50,
+    "threads": 4
+  },
+  "environment": {
+    "python": "3.13.2",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "implicit": "0.7.3"
+  }
+}

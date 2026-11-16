@@ -6,6 +6,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
+from prepare_data import EVENT_WEIGHTS
 
 REQUIRED_COLUMNS = {
     "events.csv": {"timestamp", "visitorid", "event", "itemid", "transactionid"},
@@ -47,6 +48,8 @@ def main() -> None:
     max_timestamp: int | None = None
     event_rows = 0
     for row in rows(data_dir / "events.csv"):
+        if row["event"] not in EVENT_WEIGHTS:
+            raise ValueError(f"Unknown event type: {row['event']}")
         timestamp = int(row["timestamp"])
         visitors.add(int(row["visitorid"]))
         event_items.add(int(row["itemid"]))

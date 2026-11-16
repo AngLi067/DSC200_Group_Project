@@ -2,6 +2,8 @@
 
 import argparse
 import json
+import platform
+from importlib.metadata import version
 from pathlib import Path
 from time import perf_counter
 
@@ -27,7 +29,7 @@ def evaluate(recommendations: np.ndarray, user_indices: np.ndarray, targets, ava
         rec_items = row[valid]
         relevant = np.isin(rec_items, target_items)
         recalls.append(float(relevant.sum() / target_items.size) if target_items.size else 0.0)
-        dcg = float(discounts[np.flatnonzero(relevant)].sum())
+        dcg = float(discounts[np.flatnonzero(valid)[relevant]].sum())
         ideal_hits = min(target_items.size, k)
         idcg = float(discounts[:ideal_hits].sum())
         ndcgs.append(dcg / idcg if idcg else 0.0)
@@ -44,11 +46,36 @@ def evaluate(recommendations: np.ndarray, user_indices: np.ndarray, targets, ava
         f"recall@{k}": float(np.mean(recalls)) if recalls else 0.0,
         f"ndcg@{k}": float(np.mean(ndcgs)) if ndcgs else 0.0,
         "catalog_items_recommended": len(covered_items),
-        "catalog_coverage": len(covered_items) / availability.size,
+        "catalog_coverage": len(covered_items) / availability.size if availability.size else 0.0,
         "recommendation_slots_filled": int(total_recommendations),
         "unavailable_recommendation_rate": unavailable_count / total_recommendations if total_recommendations else 0.0,
         "unknown_availability_recommendation_rate": unknown_count / total_recommendations if total_recommendations else 0.0,
     }
+
+
+def complete_rankings(
+    candidates: np.ndarray,
+    popularity_order: np.ndarray,
+    k: int,
+    eligible_items: np.ndarray,
+) -> np.ndarray:
+    """Keep unique eligible candidates, backfill by popularity, then pad with -1."""
+    filtered = np.full((candidates.shape[0], k), -1, dtype=np.int32)
+    for row_index, row in enumerate(candidates):
+        seen: set[int] = set()
+        slot = 0
+        for ranking in (row, popularity_order):
+            for item in ranking:
+                item = int(item)
+                if item >= 0 and item not in seen and eligible_items[item]:
+                    filtered[row_index, slot] = item
+                    seen.add(item)
+                    slot += 1
+                    if slot == k:
+                        break
+            if slot == k:
+                break
+    return filtered
 
 
 def filter_known_unavailable(
@@ -57,25 +84,14 @@ def filter_known_unavailable(
     popularity_order: np.ndarray,
     k: int,
 ) -> np.ndarray:
-    filtered = np.full((candidates.shape[0], k), -1, dtype=np.int32)
-    for row_index, row in enumerate(candidates):
-        valid = row >= 0
-        valid[valid] &= availability[row[valid]] != 0
-        eligible = row[valid]
-        take = min(k, eligible.size)
-        filtered[row_index, :take] = eligible[:take]
-        if take < k:
-            seen = set(map(int, eligible[:take]))
-            slot = take
-            for item in popularity_order:
-                item = int(item)
-                if item not in seen and availability[item] != 0:
-                    filtered[row_index, slot] = item
-                    seen.add(item)
-                    slot += 1
-                    if slot == k:
-                        break
-    return filtered
+    return complete_rankings(candidates, popularity_order, k, availability != 0)
+
+
+def popularity_ranking(interactions) -> np.ndarray:
+    """Rank only items observed in training; future-only items are not candidates."""
+    popularity = np.asarray(interactions.sum(axis=0)).ravel()
+    observed = np.flatnonzero(popularity > 0)
+    return observed[np.lexsort((observed, -popularity[observed]))]
 
 
 def recommend_item_based(
@@ -100,29 +116,15 @@ def recommend_item_based(
         )
         candidates[start : start + users.size] = item_indices
 
-    # Sparse visitors can have fewer than candidate_k usable neighbours.
-    # Fill only those remaining slots with the popularity ranking.
-    for row in candidates:
-        valid = row[row >= 0]
-        if valid.size < candidate_k:
-            seen = set(map(int, valid))
-            fill = []
-            needed = candidate_k - valid.size
-            for item in popularity_order:
-                item = int(item)
-                if item not in seen:
-                    fill.append(item)
-                    if len(fill) == needed:
-                        break
-            row[:] = -1
-            row[: valid.size] = valid
-            row[valid.size : valid.size + len(fill)] = fill
-    return candidates
+    observed = np.asarray(interactions.getnnz(axis=0)).ravel() > 0
+    return complete_rankings(candidates, popularity_order, candidate_k, observed)
 
 
 def save_model_results(name: str, candidates: np.ndarray, user_indices: np.ndarray, targets, availability: np.ndarray, item_ids: np.ndarray, popularity_order: np.ndarray, k: int, output_dir: Path, model_runtime: float) -> None:
     evaluation_started = perf_counter()
-    top_k = candidates[:, :k].copy()
+    top_k = np.full((candidates.shape[0], k), -1, dtype=np.int32)
+    width = min(k, candidates.shape[1])
+    top_k[:, :width] = candidates[:, :width]
     filtered = filter_known_unavailable(candidates, availability, popularity_order, k)
     metrics = {
         "model": name,
@@ -130,7 +132,7 @@ def save_model_results(name: str, candidates: np.ndarray, user_indices: np.ndarr
         "raw": evaluate(top_k, user_indices, targets, availability, k),
         "known_unavailable_filtered": evaluate(filtered, user_indices, targets, availability, k),
         "filter_rule": "remove items whose latest availability state at the train cutoff is 0; retain unknown states",
-        "filtered_list_fallback": "global popularity fills any remaining slots with available or unknown items",
+        "filtered_list_fallback": "training-item popularity fills remaining slots with available or unknown items; unfilled slots are -1",
         "runtime_seconds_including_evaluation": round(model_runtime + perf_counter() - evaluation_started, 3),
     }
     if name == "item_based_cosine":
@@ -170,9 +172,8 @@ def main() -> None:
         raise ValueError("No test users have both pre-cutoff interactions and post-cutoff targets")
 
     popularity_started = perf_counter()
-    popularity = np.asarray(interactions.sum(axis=0)).ravel()
-    item_order = np.lexsort((np.arange(item_ids.size), -popularity))
-    pop_candidates = np.broadcast_to(item_order[: args.candidate_k], (user_indices.size, min(args.candidate_k, item_ids.size)))
+    item_order = popularity_ranking(interactions)
+    pop_candidates = np.broadcast_to(item_order[: args.candidate_k], (user_indices.size, min(args.candidate_k, item_order.size)))
     save_model_results(
         "popularity", pop_candidates, user_indices, targets, availability, item_ids, item_order, args.k,
         output_dir, perf_counter() - popularity_started
@@ -195,6 +196,15 @@ def main() -> None:
         "test_target_availability_coverage_at_cutoff": metadata["test_target_availability_asof_coverage_at_cutoff"],
         "test_target_known_unavailable_rate_at_cutoff": metadata["test_target_known_unavailable_rate_at_cutoff"],
         "unknown_items_remain_eligible": True,
+        "candidate_catalog_rule": "items with at least one training interaction; previously seen items remain eligible",
+        "train_catalog_items": int(item_order.size),
+        "target_rule": "all unique post-cutoff user-item pairs for users with history and targets, including future-only items",
+        "catalog_coverage_denominator": int(item_ids.size),
+        "parameters": {"k": args.k, "candidate_k": args.candidate_k, "neighbors": args.neighbors, "threads": args.threads},
+        "environment": {
+            "python": platform.python_version(),
+            **{package: version(package) for package in ("numpy", "scipy", "implicit")},
+        },
     }
     (output_dir / "evaluation_summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(summary, indent=2))

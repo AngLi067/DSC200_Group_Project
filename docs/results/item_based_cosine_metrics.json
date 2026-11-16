@@ -1,0 +1,28 @@
+{
+  "model": "item_based_cosine",
+  "k": 10,
+  "raw": {
+    "users_evaluated": 24735,
+    "recall@10": 0.1501023585748851,
+    "ndcg@10": 0.13968201113026443,
+    "catalog_items_recommended": 65343,
+    "catalog_coverage": 0.27798316181757077,
+    "recommendation_slots_filled": 247350,
+    "unavailable_recommendation_rate": 0.47749343036183545,
+    "unknown_availability_recommendation_rate": 0.07915100060642814
+  },
+  "known_unavailable_filtered": {
+    "users_evaluated": 24735,
+    "recall@10": 0.08368765532954067,
+    "ndcg@10": 0.07907172208726466,
+    "catalog_items_recommended": 33290,
+    "catalog_coverage": 0.14162281280178338,
+    "recommendation_slots_filled": 247350,
+    "unavailable_recommendation_rate": 0.0,
+    "unknown_availability_recommendation_rate": 0.1393167576308874
+  },
+  "filter_rule": "remove items whose latest availability state at the train cutoff is 0; retain unknown states",
+  "filtered_list_fallback": "training-item popularity fills remaining slots with available or unknown items; unfilled slots are -1",
+  "runtime_seconds_including_evaluation": 5.321,
+  "candidate_fallback": "global popularity fills candidate slots when a user has too few item-neighbour results"
+}
