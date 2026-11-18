@@ -13,7 +13,7 @@ Updated: 2026-11-18. Working draft; no commit, push, or submission is implied by
 | 3 architecture diagram types | Activity, sequence, class diagrams; each has description and selection rationale | Verify rendering in final PDF |
 | 3 unit + 3 functional cases | Selected U-1/U-2/U-3 and F-1/F-2/F-3, with inputs, pre/postconditions, expectations | Preserve case IDs in final PDF |
 | Progress against spec | Status table below and test evidence | Recheck after further changes |
-| Personal development reflection | Ang Li's supplied two-paragraph draft, with two requested wording edits, included below | Final author review |
+| Personal development reflection | Ang Li's revised reflection and Wuxuan Wang's reflection transcribed from the supplied screenshot, included below | Final author review |
 | Final submission | Source and local evidence available | Combine spec (maximum 4 pages) and check-in into one PDF; prepare code ZIP or approved GitHub access |
 
 ## Confirmed team contributions
@@ -26,7 +26,7 @@ Ang Li reported the following completed responsibilities:
 | Wuxuan Wang | Measure how each step scales (do not guess); build a working skeleton |
 | Abby Li | Prepare a specification |
 
-The repository currently records preparation and per-model runtimes for one full-data size. Those observations alone do not establish how each step scales. Wuxuan Wang's existing scaling measurements should be linked or incorporated into the report to document that completed task; no scaling trend is inferred from the single-size run.
+The November 16 and 18 repository runs record preparation and per-model runtimes for one full-data size. Wuxuan Wang's reported visitor-sampling benchmarks, run on a separate copy of the project, are included below with his reflection. These are separate measurements from the repository runs documented here.
 
 ## Implementation status
 
@@ -88,3 +88,28 @@ These are technical observations for the progress check, not a personal reflecti
 I selected the dataset and baseline models for our offline recommendation pipeline, documented the architecture, and prepared the test plan. Retailrocket fit our research question because it includes both user behavior and changes in product availability. We assigned different weights to views, cart additions, and purchases to represent different levels of engagement. When documenting the architecture, I focused on matching those events with the product records at the right time. Using an availability update from after the training cutoff would give the filter information it would not have had then. In `prepare_data.py`, we use the latest availability record at or before the cutoff and treat items without a record by that point as unknown. Working through this made me pay more attention to timestamps when choosing a dataset: they need to let us reconstruct what was known at the time of the evaluation.
 
 Having separate functions for candidate generation, filtering, and evaluation made the test plan easier to write. The popularity baseline and item-based cosine model produce different rankings, but use the same filter and the same future interactions for evaluation. We saved the original and filtered rankings so we could compare them. For the cosine model, filtering reduced known-unavailable exposure at the cutoff from 47.7% to zero, while Recall@10 dropped from 15.0% to 8.4%. I could test the filtering rules individually, including whether unknown items remain eligible and whether popularity fills remaining slots with eligible items without introducing duplicates. For a future version, I would put ranking, filtering, and evaluation in separate modules. I would also define the candidate format before implementation, including how rows correspond to users and how empty slots are represented, so another model could use the same filtering and evaluation code.
+
+## Personal reflection (Wuxuan Wang)
+
+### Pipeline Integration and Performance
+
+For our Retailrocket recommendation project, I examined how the preprocessing and recommendation scripts share data and how their runtime changes as the number of visitors grows. I used an AI coding assistant to run the checks and benchmarks on a separate copy of the project.
+
+The recommendation script relies on each matrix column identifying the same product in the item ID list and the availability array. A mismatch could produce a plausible recommendation list while filtering out the wrong products. At each sample size, we checked the saved interaction weights and test targets against the raw histories of 30 visitors. We also checked 100 products against their latest recorded availability at or before the training cutoff. All sampled records matched. Tracing those values back to the source gave me a way to check the meaning of a column as well as its dimensions.
+
+For the benchmark, we sampled visitors and retained each selected visitor’s full history. Increasing the sample from 10% to 100% raised the event count roughly tenfold. Median preprocessing time rose from 13.00 to 15.97 seconds. Loading the same product-property tables took about 12.6 seconds at every scale, accounting for nearly four fifths of full-scale processing. This measurement helped me see the practical value of saving the processed files. We can reuse them when we change model parameters and avoid paying that cost on every run.
+
+**Table 1. Runtime and peak memory by visitor sample**
+
+| Visitors sampled | Events | Prepare (s) | Popularity¹ (s) | Item cosine¹ (s) | Peak RSS² (MiB) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 10% | 275,019 | 13.001 | 0.059 | 0.222 | 255.2 |
+| 25% | 692,145 | 13.423 | 0.147 | 0.528 | 380.6 |
+| 50% | 1,383,082 | 14.301 | 0.291 | 1.013 | 513.2 |
+| 100% | 2,756,101 | 15.972 | 0.565 | 1.826 | 648.3 |
+
+Medians of three runs per sample. Four model threads, 50 neighbors, 100 candidates, top 10.
+
+¹ Includes evaluation.  ² Peak resident memory for both models run sequentially in one process.
+
+Item-based recommendation and evaluation took 0.22 seconds at the smallest scale and 1.83 seconds at full scale. The sparse training matrix used 18.4 MiB for its core arrays at full scale, while the process running both models peaked at 648.3 MiB. It also held similarity data and candidate lists. Keeping the batch size at 2,048 visitors limited the number scored in each call, but memory still rose with the sample size. To measure how much batching itself helps, I would hold the dataset fixed and vary only the batch size.
