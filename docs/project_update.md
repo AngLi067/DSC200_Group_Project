@@ -1,6 +1,6 @@
 # Project Update: Local Review Record
 
-Date: 2026-11-16. Working draft; no commit, push, or submission is implied by this document.
+Updated: 2026-11-18. Working draft; no commit, push, or submission is implied by this document. The November 16 measurements below are retained as historical evidence.
 
 ## Rubric completion checklist
 
@@ -41,6 +41,12 @@ The repository currently records preparation and per-model runtimes for one full
 
 ## Verification evidence
 
+The November 18 data-quality integration passes 31 automated tests, including the original selected cases. The new `retailrocket_tools` package adds shared contracts, strict CSV structure checks, input fingerprints, atomic JSON output, validation diagnostics, and descriptive data profiles. Existing commands continue to work; no additional dependency is required. See `data_quality.md` for the report contract and limitations.
+
+The full-data audit completed 17 checks with zero error-level failures. One warning check reports the same 167 category-reference rows already observed. All four input SHA-256 hashes match the November 16 baseline. Measured audit time before final report writing was 78.412 seconds: 2.273 seconds fingerprinting and 76.136 seconds validation/profiling. These are single-run measurements, not a scaling study. The raw profile has a median of one event per visitor; this is a different quantity from distinct training interactions per visitor. The report snapshot is `results/data_quality_2026-11-18.json`.
+
+Full-data preparation and both models were rerun after the integration. Preparation metadata and evaluation results match the November 16 baseline, excluding runtime. All recommendation arrays retain shape `(24735, 10)`, unique training-observed IDs per row, and zero known-unavailable items after filtering. Preparation took 38.112 seconds; popularity and item cosine including evaluation took 1.538 and 5.259 seconds respectively. Updated source hashes and verification results are in `results/integration_2026-11-18.json`.
+
 Run from the repository root:
 
 ```bash
@@ -50,7 +56,7 @@ Run from the repository root:
 .venv/bin/python recommendation_models.py data/processed
 ```
 
-The regression suite contains 17 tests: 11 unit tests and 6 functional tests. All 17 passed on 2026-11-16, including all six cases selected for grading. There are no currently observed failing tests in that run. No external download is required for the fixture tests; online Kaggle access is outside their coverage.
+The November 16 regression suite contained 17 tests: 11 unit tests and 6 functional tests. All 17 passed on that date, including all six cases selected for grading. There were no observed failing tests in that run. No external download is required for the fixture tests; online Kaggle access is outside their coverage.
 
 The full-data audit, preparation, and both-model evaluation also completed successfully on 2026-11-16. The dataset contains 2,756,101 events, 1,407,580 visitors, and 235,061 event items. The split contains 2,204,881 training events and 551,220 test events; 212,916 items have training history, and 24,735 visitors qualify for evaluation. Of visitors with training history, 79.7% have only one distinct training item, so sparse-history behavior and popularity fallback matter.
 

@@ -1,6 +1,6 @@
 # Availability-Aware E-Commerce Recommendation: Specification Draft
 
-Revision: 2026-11-16. This is editable source for the project-update spec. The final spec must be typeset within four pages; this Markdown draft has not been page-count validated. Work distribution has been confirmed by Ang Li. Exactly FR-1 to FR-3, NFR-1 to NFR-3, U-1 to U-3, and F-1 to F-3 below are selected for grading.
+Revision: 2026-11-18. This is editable source for the project-update spec. The final spec must be typeset within four pages; this Markdown draft has not been page-count validated. Work distribution has been confirmed by Ang Li. Exactly FR-1 to FR-3, NFR-1 to NFR-3, U-1 to U-3, and F-1 to F-3 below are selected for grading.
 
 ## 1. Background, goal, and scope
 
@@ -27,7 +27,7 @@ All six selected requirements are **Must / stable for this update**. IDs provide
 
 | ID | Verifiable requirement | Implementation / verification |
 | --- | --- | --- |
-| FR-1 | For valid Retailrocket CSVs and a train fraction in `[0.5,1)`, create weighted CSR training interactions (view=1, addtocart=3, transaction=5), binary distinct future targets, sorted ID mappings, cutoff availability, and metadata. Use `timestamp <= cutoff` for training and `> cutoff` for testing. Reject a split with an empty partition. | `prepare_data.py`; F-1 and timestamp-tie regression |
+| FR-1 | For valid Retailrocket CSVs and a train fraction in `[0.5,1)`, create weighted CSR training interactions (view=1, addtocart=3, transaction=5), binary distinct future targets, sorted ID mappings, cutoff availability, and metadata. Use `timestamp <= cutoff` for training and `> cutoff` for testing. Reject a split with an empty partition. | `audit_data.py`, `retailrocket_tools`, `prepare_data.py`; F-1 and timestamp-tie regression |
 | FR-2 | For each visitor with history and future targets, produce popularity and item-based cosine lists of K unique training-observed items, allowing previously seen items. Filter known-unavailable items, retain unknown states, backfill by training popularity, and use `-1` when fewer than K eligible items exist. | `recommendation_models.py`; U-2, F-2 |
 | FR-3 | Save both models' raw and filtered Recall@K, NDCG@K, catalog coverage, unavailable/unknown exposure, filled-slot count, and runtime as JSON, plus item-ID arrays and evaluated-user indices. Include K, candidate count, neighbor count, thread count, cutoff and library versions in shared context. | `evaluate`, `save_model_results`, CLI; U-3, F-2 |
 | NFR-1 | Enforce temporal integrity: training scores and candidate membership use only pre-cutoff events, and each availability state is the latest same-item record at or before the cutoff. Later states must not affect that snapshot; no earlier state means unknown. | `asof_indices`, `popularity_ranking`; U-1, F-1, F-2 |
@@ -60,6 +60,7 @@ Rows are anonymized visitor events or timestamped item-property observations, no
 flowchart TD
     start((Start)) --> raw[Acquire four raw CSVs]
     raw --> audit[Audit files and values]
+    audit --> report[Save fingerprints, checks and data profile]
     audit --> valid{Inputs valid?}
     valid -- No --> stop[Exit with error]
     valid -- Yes --> split[Chronological split and ID mapping]

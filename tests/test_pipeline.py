@@ -75,7 +75,10 @@ class PipelineTests(unittest.TestCase):
         self.run_cli("download_dataset.py", "--source-dir", self.raw, "--output-dir", destination)
         for source in self.raw.glob("*.csv"):
             self.assertEqual(source.read_bytes(), (destination / source.name).read_bytes())
-        self.run_cli("audit_data.py", destination)
+        self.run_cli("audit_data.py", destination, "--output-dir", self.root / "quality")
+        quality = json.loads((self.root / "quality" / "audit_report.json").read_text())
+        self.assertEqual(quality["status"], "passed")
+        self.assertEqual(quality["profile"]["events"], 10)
         self.run_cli("prepare_data.py", destination, "--output-dir", self.processed)
         metadata = json.loads((self.processed / "metadata.json").read_text())
         self.assertEqual(metadata["cutoff_timestamp_ms"], 72)
@@ -126,7 +129,7 @@ class PipelineTests(unittest.TestCase):
                               "--k", 10, "--candidate-k", 5, succeeds=False)
         self.assertIn("candidate-k must be >= k", result.stderr)
         (self.raw / "events.csv").unlink()
-        result = self.run_cli("audit_data.py", self.raw, succeeds=False)
+        result = self.run_cli("audit_data.py", self.raw, "--output-dir", self.root / "quality", succeeds=False)
         self.assertIn("Required file not found", result.stderr)
         self.assertFalse((self.outputs / "evaluation_summary.json").exists())
 
@@ -146,7 +149,7 @@ class PipelineTests(unittest.TestCase):
 
     def test_audit_rejects_unknown_event_type(self):
         self.write_events([[10, 1, "click", 10, ""]])
-        result = self.run_cli("audit_data.py", self.raw, succeeds=False)
+        result = self.run_cli("audit_data.py", self.raw, "--output-dir", self.root / "quality", succeeds=False)
         self.assertIn("Unknown event type", result.stderr)
 
 

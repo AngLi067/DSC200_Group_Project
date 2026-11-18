@@ -1,7 +1,6 @@
 """Create chronological Retailrocket interactions and availability-at-cutoff data."""
 
 import argparse
-import csv
 import json
 from pathlib import Path
 from time import perf_counter
@@ -9,15 +8,15 @@ from time import perf_counter
 import numpy as np
 from scipy.sparse import coo_matrix, save_npz
 
+from retailrocket_tools.contracts import AVAILABILITY_FILES, EVENT_WEIGHTS
+from retailrocket_tools.io import read_rows, write_json
 
-EVENT_WEIGHTS = {"view": 1.0, "addtocart": 3.0, "transaction": 5.0}
-AVAILABILITY_FILES = ("item_properties_part1.csv", "item_properties_part2.csv")
 AVAILABILITY_DTYPE = np.dtype([("item", "<i4"), ("timestamp", "<i8"), ("value", "i1")])
 
 
 def csv_rows(path: Path):
-    with path.open("r", newline="", encoding="utf-8-sig") as stream:
-        yield from csv.DictReader(stream)
+    for _, row in read_rows(path):
+        yield row
 
 
 def count_data_lines(path: Path) -> int:
@@ -197,7 +196,7 @@ def main() -> None:
     np.save(output_dir / "availability_at_cutoff.npy", availability_at_cutoff)
     save_npz(output_dir / "train_interactions.npz", interactions, compressed=True)
     save_npz(output_dir / "test_targets.npz", targets, compressed=True)
-    (output_dir / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+    write_json(output_dir / "metadata.json", metadata)
     print(json.dumps(metadata, indent=2))
     print(f"Processed data written to: {output_dir}")
 

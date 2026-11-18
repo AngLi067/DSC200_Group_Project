@@ -1,0 +1,61 @@
+{
+  "run_date": "2026-11-18",
+  "purpose": "Retailrocket data-quality integration verification",
+  "tests_passed": 31,
+  "tests_failed": 0,
+  "test_command": ".venv/bin/python -m unittest discover -s tests -v",
+  "full_data_commands": [
+    ".venv/bin/python audit_data.py data/raw/retailrocket --output-dir outputs/data_quality",
+    ".venv/bin/python prepare_data.py data/raw/retailrocket",
+    ".venv/bin/python recommendation_models.py data/processed"
+  ],
+  "code_sha256": {
+    "audit_data.py": "049c68a566f5b8d6b5d9b69cfb9f22080df8291883d54909bf3cc1fca1f429de",
+    "download_dataset.py": "5d0303334ce87bfc07c96c320bd8e9d2fde851ec7379b7f256efe387389ffcae",
+    "prepare_data.py": "389be136e198c9d739d086266642687912433d2a51ab60d2fab3ae671e4911d3",
+    "recommendation_models.py": "538cb690acffeb384c3269aae4466742d8afb003a6f7a89de99f9f0803f6ddbc",
+    "requirements-lock.txt": "2fcb1e29b45d430da13f06177f38808ee746b6cb0befd397a2437f67c93ece91",
+    "retailrocket_tools/__init__.py": "7d172a0bb73ef816545734b5c9f3a6d474e00d3b280f2e831ff7c8a3204a4008",
+    "retailrocket_tools/contracts.py": "ce17ea889d1452ed615feaadf9179b05af2d4c330b66e8373fc362383b2b4c6f",
+    "retailrocket_tools/io.py": "8c8bbf995fadd7bc21bb65adfb2addd2a3c66d4a25ba2e1125b91e6106da4ad9",
+    "retailrocket_tools/profiling.py": "167a2abe99e1f66eb8b80aa5dba75d070649c66875964f7cc218059f5b6f1855",
+    "retailrocket_tools/validation.py": "20ea8f292c75144468b9df20f48177736f61b49773bd0d45bbbba44ee5d9b38f",
+    "tests/test_data_quality.py": "ea8d1a66a317a8f101a995dc711adf8a0e9efa423c3ba3683062cb36559146d3",
+    "tests/test_pipeline.py": "7e1fff463de8b3ceb41a82584c8129e93e540d931d32b917704b9d0cb0376726",
+    "tests/test_prepare_data.py": "f6c07a20a50cd06b80e4f08dddae50724fcb638b8571a4a8c0840edf3a91dd91",
+    "tests/test_recommendation_models.py": "63a0db513130624d408f7610ae58a3de707377ea23c7972b4a1070c1b81f61ff"
+  },
+  "audit_run_id": "aba9c5d7c6ce4e5084789bf942193d6c",
+  "audit_status": "passed",
+  "audit_checks": 17,
+  "audit_error_checks": 0,
+  "audit_warning_checks": 1,
+  "raw_input_hashes_equal_november_16": true,
+  "preparation_metadata_equal_except_runtime": true,
+  "preparation_runtime_seconds": 38.112,
+  "evaluation_summary_equal_november_16": true,
+  "model_output_checks": {
+    "popularity": {
+      "quality_metrics_equal_november_16": true,
+      "output_shape": [
+        24735,
+        10
+      ],
+      "training_items_only": true,
+      "unique_per_row": true,
+      "filtered_unavailable_count": 0,
+      "runtime_seconds_including_evaluation": 1.538
+    },
+    "item_based_cosine": {
+      "quality_metrics_equal_november_16": true,
+      "output_shape": [
+        24735,
+        10
+      ],
+      "training_items_only": true,
+      "unique_per_row": true,
+      "filtered_unavailable_count": 0,
+      "runtime_seconds_including_evaluation": 5.259
+    }
+  }
+}

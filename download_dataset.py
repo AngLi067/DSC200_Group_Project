@@ -6,14 +6,10 @@ import shutil
 
 import kagglehub
 
+from retailrocket_tools.contracts import SCHEMAS
 
 DATASET_HANDLE = "retailrocket/ecommerce-dataset"
-EXPECTED_FILES = {
-    "events.csv",
-    "item_properties_part1.csv",
-    "item_properties_part2.csv",
-    "category_tree.csv",
-}
+EXPECTED_FILES = set(SCHEMAS)
 
 
 def main() -> None:

@@ -1,102 +1,89 @@
-"""Validate Retailrocket event, item-property, and category files."""
+"""Audit Retailrocket CSVs and write fingerprints, validation, and descriptive statistics."""
 
 import argparse
-import csv
-from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
+import platform
+from time import perf_counter
+from uuid import uuid4
 
-from prepare_data import EVENT_WEIGHTS
-
-REQUIRED_COLUMNS = {
-    "events.csv": {"timestamp", "visitorid", "event", "itemid", "transactionid"},
-    "item_properties_part1.csv": {"timestamp", "itemid", "property", "value"},
-    "item_properties_part2.csv": {"timestamp", "itemid", "property", "value"},
-    "category_tree.csv": {"categoryid", "parentid"},
-}
+from retailrocket_tools.contracts import SCHEMAS
+from retailrocket_tools.io import file_signature, fingerprint, write_json
+from retailrocket_tools.validation import ValidationError, validate
 
 
-def rows(path: Path):
-    with path.open("r", newline="", encoding="utf-8-sig") as stream:
-        yield from csv.DictReader(stream)
-
-
-def require_columns(path: Path, required: set[str]) -> None:
-    with path.open("r", newline="", encoding="utf-8-sig") as stream:
-        columns = set(csv.DictReader(stream).fieldnames or [])
-    missing = required - columns
-    if missing:
-        raise ValueError(f"{path.name} is missing columns: {sorted(missing)}")
+def run_audit(data_dir: Path, output_dir: Path) -> dict:
+    data_dir, output_dir = Path(data_dir).resolve(), Path(output_dir).resolve()
+    if output_dir == data_dir or data_dir in output_dir.parents:
+        raise ValueError("Audit output directory must be outside the raw source directory")
+    report_path = output_dir / "audit_report.json"
+    started = perf_counter()
+    report = {
+        "report_version": 1, "run_id": uuid4().hex, "status": "running",
+        "started_at_utc": datetime.now(timezone.utc).isoformat(),
+        "python_version": platform.python_version(), "input_manifest": {}, "stage_seconds": {},
+    }
+    # A new run first replaces the old success status. One report is the source of truth.
+    write_json(report_path, report)
+    try:
+        signatures = {}
+        stage_started = perf_counter()
+        for filename in SCHEMAS:
+            path = data_dir / filename
+            if not path.is_file():
+                raise FileNotFoundError(f"Required file not found: {path}")
+            signatures[filename] = file_signature(path)
+            report["input_manifest"][filename] = fingerprint(path)
+        report["stage_seconds"]["fingerprinting"] = round(perf_counter() - stage_started, 6)
+        print("Source fingerprints complete; validating and profiling CSVs...", flush=True)
+        stage_started = perf_counter()
+        checks, profile = validate(data_dir)
+        report["validation"], report["profile"] = checks, profile
+        report["stage_seconds"]["validation_and_profiling"] = round(perf_counter() - stage_started, 6)
+        for filename, before in signatures.items():
+            if before != file_signature(data_dir / filename):
+                raise ValueError(f"Source file changed during audit: {filename}")
+            report["input_manifest"][filename]["parsed_records"] = checks["rows_by_file"][filename]
+        if not checks["passed"]:
+            failures = [entry for entry in checks["checks"] if not entry["passed"] and entry["severity"] == "error"]
+            first = failures[0]
+            detail = first["examples"][0] if first["examples"] else first["check"]
+            raise ValidationError(f"{checks['failed_checks']} checks failed; {first['check']}: {detail}")
+        report["status"] = "passed"
+        report["completed_at_utc"] = datetime.now(timezone.utc).isoformat()
+        report["audit_seconds_before_final_write"] = round(perf_counter() - started, 6)
+        write_json(report_path, report)
+    except Exception as exc:
+        report["status"] = "failed"
+        report["error"] = {"type": type(exc).__name__, "message": str(exc)}
+        report["completed_at_utc"] = datetime.now(timezone.utc).isoformat()
+        report["audit_seconds_before_final_write"] = round(perf_counter() - started, 6)
+        try:
+            write_json(report_path, report)
+        except Exception as reporting_error:
+            exc.add_note(f"Could not save failure diagnostics: {reporting_error}")
+        raise
+    return report
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("data_dir", type=Path, nargs="?", default=Path("data/raw/retailrocket"))
+    parser.add_argument("--output-dir", type=Path, default=Path("outputs/data_quality"))
     args = parser.parse_args()
-    data_dir = args.data_dir.expanduser().resolve()
-
-    for filename, required in REQUIRED_COLUMNS.items():
-        path = data_dir / filename
-        if not path.is_file():
-            raise FileNotFoundError(f"Required file not found: {path}")
-        require_columns(path, required)
-
-    visitors: set[int] = set()
-    event_items: set[int] = set()
-    event_counts: Counter[str] = Counter()
-    min_timestamp: int | None = None
-    max_timestamp: int | None = None
-    event_rows = 0
-    for row in rows(data_dir / "events.csv"):
-        if row["event"] not in EVENT_WEIGHTS:
-            raise ValueError(f"Unknown event type: {row['event']}")
-        timestamp = int(row["timestamp"])
-        visitors.add(int(row["visitorid"]))
-        event_items.add(int(row["itemid"]))
-        event_counts[row["event"]] += 1
-        min_timestamp = timestamp if min_timestamp is None else min(min_timestamp, timestamp)
-        max_timestamp = timestamp if max_timestamp is None else max(max_timestamp, timestamp)
-        event_rows += 1
-
-    category_ids: set[int] = set()
-    for row in rows(data_dir / "category_tree.csv"):
-        category_ids.add(int(row["categoryid"]))
-
-    property_rows = 0
-    availability_rows = 0
-    availability_items: set[int] = set()
-    invalid_availability_values = 0
-    invalid_category_values = 0
-    for filename in ("item_properties_part1.csv", "item_properties_part2.csv"):
-        for row in rows(data_dir / filename):
-            property_rows += 1
-            if row["property"] == "available":
-                availability_rows += 1
-                availability_items.add(int(row["itemid"]))
-                if row["value"] not in {"0", "1"}:
-                    invalid_availability_values += 1
-            elif row["property"] == "categoryid":
-                try:
-                    category_value = int(row["value"])
-                except ValueError:
-                    invalid_category_values += 1
-                else:
-                    if category_value not in category_ids:
-                        invalid_category_values += 1
-
-    if event_rows == 0 or not visitors or not event_items:
-        raise ValueError("events.csv contains no usable events")
-    if invalid_availability_values:
-        raise ValueError(f"Found {invalid_availability_values} availability values outside 0/1")
-
-    iso_min = datetime.fromtimestamp(min_timestamp / 1000, tz=timezone.utc).isoformat()
-    iso_max = datetime.fromtimestamp(max_timestamp / 1000, tz=timezone.utc).isoformat()
-    print(f"Data directory: {data_dir}")
-    print(f"Events: {event_rows:,}; visitors: {len(visitors):,}; event items: {len(event_items):,}")
-    print(f"Event types: {dict(event_counts)}")
-    print(f"Event time range (UTC): {iso_min} to {iso_max}")
-    print(f"Property rows: {property_rows:,}; availability records: {availability_rows:,}; items with availability history: {len(availability_items):,}")
-    print(f"Invalid availability values: {invalid_availability_values}; category values absent from tree: {invalid_category_values}")
+    try:
+        report = run_audit(args.data_dir, args.output_dir)
+    except (ValueError, OSError) as exc:
+        parser.exit(1, f"Audit failed: {exc}\n")
+    profile, checks = report["profile"], report["validation"]
+    print(f"Events: {profile['events']:,}; visitors: {profile['visitors']:,}; event items: {profile['event_items']:,}")
+    print(f"Event types: {profile['event_counts']}")
+    print(f"Property rows: {profile['property_records']:,}; availability records: {profile['availability_records']:,}")
+    print(f"Checks: {checks['check_count']}; failed: {checks['failed_checks']}; warnings: {checks['warning_checks']}")
+    for check in checks["checks"]:
+        if not check["passed"]:
+            print(f"WARNING {check['check']}: {check['failure_count']} {check['count_unit']}")
+    print(f"Audit report: {args.output_dir.resolve() / 'audit_report.json'}")
 
 
 if __name__ == "__main__":

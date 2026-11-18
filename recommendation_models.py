@@ -11,6 +11,8 @@ import implicit.nearest_neighbours as nearest_neighbours
 import numpy as np
 from scipy.sparse import load_npz
 
+from retailrocket_tools.io import write_json
+
 
 def evaluate(recommendations: np.ndarray, user_indices: np.ndarray, targets, availability: np.ndarray, k: int) -> dict:
     recalls = []
@@ -143,7 +145,7 @@ def save_model_results(name: str, candidates: np.ndarray, user_indices: np.ndarr
     raw_ids = np.where(top_k >= 0, item_ids[np.maximum(top_k, 0)], -1)
     np.save(model_dir / "raw_recommendations.npy", raw_ids)
     np.save(model_dir / "filtered_recommendations.npy", np.where(filtered >= 0, item_ids[np.maximum(filtered, 0)], -1))
-    (model_dir / "metrics.json").write_text(json.dumps(metrics, indent=2) + "\n", encoding="utf-8")
+    write_json(model_dir / "metrics.json", metrics)
     print(json.dumps(metrics, indent=2))
 
 
@@ -206,7 +208,7 @@ def main() -> None:
             **{package: version(package) for package in ("numpy", "scipy", "implicit")},
         },
     }
-    (output_dir / "evaluation_summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    write_json(output_dir / "evaluation_summary.json", summary)
     print(json.dumps(summary, indent=2))
 
 

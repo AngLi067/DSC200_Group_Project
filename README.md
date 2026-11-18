@@ -41,6 +41,14 @@ python3 -m venv .venv
 
 `prepare_data.py` splits events chronologically (default 80% train) and creates weighted implicit interactions (view=1, add-to-cart=3, transaction=5), binary future targets, and an availability snapshot using the latest property timestamp at or before the training cutoff.
 
+`audit_data.py` now writes `outputs/data_quality/audit_report.json`, containing source SHA-256 fingerprints, validation failures/warnings with up to five examples each, raw-data distributions, and measured audit-stage times. It exits nonzero on an error. Run preparation only after the audit succeeds. To choose a report directory:
+
+```bash
+.venv/bin/python audit_data.py data/raw/retailrocket --output-dir outputs/data_quality
+```
+
+The reusable `retailrocket_tools` package supplies CSV contracts, atomic JSON output, validation, and descriptive profiling without adding dependencies. See [data-quality behavior](docs/data_quality.md) for checks, warning policies, report status, and limitations. The profile describes the raw dataset; it does not replace chronological evaluation or measure scaling across dataset sizes.
+
 `requirements-lock.txt` records the environment used for the checked run; `requirements.txt` lists the direct dependencies. The existing local environment was tested; a fresh installation of the lock file has not yet been validated on other platforms. The tests use a small synthetic dataset and need no Kaggle account or network access.
 
 `recommendation_models.py` compares global popularity with item-based cosine similarity. It reports Recall@10, NDCG@10, catalog coverage, unavailable-item exposure, unknown-state exposure, and runtime before and after filtering. Only items with training interactions can be recommended; previously seen items remain eligible. Known unavailable products are removed; unknown products remain eligible. Training-item popularity fills remaining Top 10 slots without duplicates, and `-1` pads any slots that cannot be filled.
@@ -50,6 +58,7 @@ Evaluation includes only visitors with both training history and future targets.
 ## Outputs
 
 - `data/processed/metadata.json`: split counts, cutoff, and availability-state coverage.
+- `outputs/data_quality/audit_report.json`: current audit status, input fingerprints, validation and descriptive statistics.
 - `outputs/popularity/metrics.json`: popularity results.
 - `outputs/item_based_cosine/metrics.json`: item-based results.
 - `outputs/evaluation_summary.json`: shared evaluation context.
@@ -65,6 +74,6 @@ Saved recommendation arrays have shape `(evaluated_visitors, k)` and contain ori
 
 The chronological split contains 2,204,881 training events, 551,220 test events, and 24,735 evaluated visitors with both history and future targets. Historical availability can be matched at event time for 80.7% of all events; at the training cutoff it covers 77.7% of catalog items and 86.4% of test target pairs. Among test target pairs with a known state, 48.9% are marked unavailable.
 
-There are 212,916 training-observed items out of 235,061 event items. Of visitors with training history, 79.7% interacted with only one distinct item. All 17 automated tests pass, including three selected unit cases and three selected functional cases. The full-data audit reports 167 category-property values absent from the category tree; category features are currently outside the model.
+There are 212,916 training-observed items out of 235,061 event items. Of visitors with training history, 79.7% interacted with only one distinct item. The original November 16 run passed 17 tests; the November 18 data-quality integration passes 31 tests, including the same three selected unit cases and three selected functional cases. The full-data audit reports 167 category-property values absent from the category tree; category features are currently outside the model.
 
 Item-based cosine reached Recall@10 0.1501 and NDCG@10 0.1397 before filtering. After removing known-unavailable items, Recall@10 was 0.0837 and NDCG@10 was 0.0791; known-unavailable recommendation exposure fell from 47.7% to 0%. These figures show a relevance-availability trade-off for this fixed cutoff, not a real-world sales effect.
