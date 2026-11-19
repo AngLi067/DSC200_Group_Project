@@ -113,3 +113,17 @@ Medians of three runs per sample. Four model threads, 50 neighbors, 100 candidat
 ¹ Includes evaluation.  ² Peak resident memory for both models run sequentially in one process.
 
 Item-based recommendation and evaluation took 0.22 seconds at the smallest scale and 1.83 seconds at full scale. The sparse training matrix used 18.4 MiB for its core arrays at full scale, while the process running both models peaked at 648.3 MiB. It also held similarity data and candidate lists. Keeping the batch size at 2,048 visitors limited the number scored in each call, but memory still rose with the sample size. To measure how much batching itself helps, I would hold the dataset fixed and vary only the batch size.
+
+## Personal reflection (Abby Li)
+
+My main responsibility in this project was working on the specification, but I also helped with exploratory data analysis and visualizing some of our results.
+
+At first, I thought the specification was mostly about making sure everyone followed the same rules when writing code. But as I worked through the recommendation pipeline, I realized that these rules also affect what we're measuring. Which users we evaluate, which items count as candidates, and how incomplete Top-K lists are handled can all change the results. Even when two models use the same dataset, their results may not be comparable if they're evaluated differently. This was something I hadn't really thought about before.
+
+One thing that surprised me was how sparse the Retailrocket dataset actually was. We had over 2.7 million interaction events, which initially sounded like a lot. But my exploratory analysis showed that 71.2% of visitors had only one recorded event. That made me wonder: how much can we really learn about someone's preferences from just one interaction? It also made me think about which users we're actually evaluating. Since our evaluation only includes users with both historical and future interactions, the results may not represent the majority of visitors. I started paying more attention to what the data could and couldn't tell us, rather than just how much data we had.
+
+Another moment that stood out was when Recall@10 dropped from 15.01% to 8.37% after availability filtering. My first reaction was that the model had performed much worse. But then I noticed that our evaluation still counted future interactions with items marked unavailable at the training cutoff as relevant, even though those items had been removed from the recommendations. The model had fewer chances to get a hit, while the evaluation targets stayed the same. The drop was real under our evaluation setup, but it didn't necessarily mean the filtered recommendations were less useful in practice. This made me realize how easy it is to misinterpret a metric without understanding how it's calculated.
+
+I also learned from working with AI-assisted coding tools, Jupyter, and GitHub. Even managing branches, commits, and pushing changes to a remote repository took more time than I expected. Working on the visualizations in a separate branch helped me understand why it's important to keep changes organized when several people are working on the same project.
+
+Looking back, the biggest thing I've learned is to be more careful about trusting results just because the code runs and the numbers look reasonable. I want to get better at understanding the assumptions behind a model, questioning how it's evaluated, and explaining why its results are meaningful.
