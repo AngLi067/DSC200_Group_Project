@@ -45,7 +45,3 @@ The source signature (device, inode, byte size and modification time) is checked
 The raw profile covers all valid input events. Events-per-visitor includes repeated events and differs from distinct training interactions per visitor. Any-time availability-history coverage can include records after the training cutoff; it is descriptive only and is not used to rank or filter recommendations. The existing preparation metadata continues to provide cutoff-aligned coverage.
 
 Rows are scanned sequentially, but memory use is not constant: the profile retains per-visitor counters and item sets, and conflicting availability detection stores compact numeric history arrays. No global process-memory cap is claimed. Stage times describe one audit at one input size; they are not a scalability benchmark. Cross-machine installation and multiple-size performance experiments remain separate verification tasks.
-
-## Automated checks
-
-The integration passes 31 automated tests on 2026-11-18. The 14 new data-quality tests cover exact fixture statistics and hashes, zero IDs and structural nulls, failed reruns, bounded examples, numeric and transaction constraints, availability conflicts/repeats, duplicate categories, empty events, source/output separation, input mutation, diagnostic write failures, atomic writes, empty-file fingerprints, BOM/reordered headers, and malformed CSVs. Existing CLI functional tests now verify a successful quality report before preprocessing.

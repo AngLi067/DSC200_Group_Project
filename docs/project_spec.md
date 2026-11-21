@@ -1,6 +1,6 @@
-# Availability-Aware E-Commerce Recommendation: Specification Draft
+# Availability-Aware E-Commerce Recommendation: Specification
 
-Revision: 2026-11-18. This is editable source for the project-update spec. The final spec must be typeset within four pages; this Markdown draft has not been page-count validated. Work distribution has been confirmed by Ang Li. Exactly FR-1 to FR-3, NFR-1 to NFR-3, U-1 to U-3, and F-1 to F-3 below are selected for grading.
+Revision: 2026-11-18.
 
 ## 1. Background, goal, and scope
 
@@ -10,7 +10,7 @@ E-commerce recommenders may recommend products that are unavailable. This projec
 
 **Out of scope:** a deployed storefront, real-time inventory, physical stock quantities, causal revenue estimates, live A/B tests, user authentication, category-aware ranking, and recommendations for visitors without training history. Views, carts, and purchases all count as future targets; purchase prediction alone is not the objective.
 
-**Work distribution:** Ang Li confirmed that the following tasks were completed by the named members. These assignments describe each member's project responsibilities; the current draft incorporates subsequent local review updates.
+**Work distribution:**
 
 | Responsibility | Member(s) | Concrete deliverables |
 | --- | --- | --- |
@@ -147,4 +147,4 @@ All selected cases are automated. Preconditions include installed dependencies; 
 | F-2 / FR-2/3, NFR-1/2/3 | Use F-1 fixture; run both models with K=6, candidate count=8, neighbors=2, threads=1. | Exit 0; both models save 2x6 arrays. Raw contains items {10,20,30,40}, filtered {10,30,40}; all other slots=-1. Item 50 is future-only and absent. Raw recall=0.5, filtered recall=0; filtered unavailable exposure=0. Parameters and environment saved. `test_f02_two_model_evaluation_with_small_catalog` |
 | F-3 / NFR-2 | Fresh fixture and no result directory. Run prepare with fraction=1; run model with K=10/candidates=5; remove events.csv and run audit. | Each command exits nonzero with an explanatory error. No evaluation summary is created. Temporary fixture remains isolated. `test_f03_invalid_inputs_fail_without_success_metrics` |
 
-Additional regression tests cover CSV blank lines/missing trailing newline, empty data, unknown events, duplicate recommendations, all-unavailable catalogs, popularity ties, timestamp ties and visitors without overlapping history/targets. These are supporting tests, not additional cases selected for grading.
+Additional regression tests cover CSV blank lines/missing trailing newline, empty data, unknown events, duplicate recommendations, all-unavailable catalogs, popularity ties, timestamp ties and visitors without overlapping history/targets. These supplement U-1–U-3 and F-1–F-3.

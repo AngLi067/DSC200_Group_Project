@@ -2,6 +2,45 @@
 
 This project uses the Retailrocket e-commerce dataset to compare popularity and item-based recommendations, then measures how filtering products with a known unavailable state affects recommendation quality. The data has historical availability states, not physical inventory quantities.
 
+## Project documentation
+
+- [Specification](docs/project_spec.md): requirements, data schema, architecture, and test cases.
+- [Implementation status](docs/project_update.md#implementation-status): progress on each requirement and remaining validation work.
+- [Verification results](docs/project_update.md#verification-evidence): automated test outcomes and full-data pipeline checks.
+- [Specification changes](docs/project_update.md#specification-clarifications-identified-during-implementation): candidate eligibility, padding, data acquisition, and evaluation rules clarified during development.
+- [Team contributions](docs/project_update.md#team-contributions) and development reflections: [Ang Li](docs/project_update.md#personal-reflection-ang-li), [Wuxuan Wang](docs/project_update.md#personal-reflection-wuxuan-wang), and [Abby Li](docs/project_update.md#personal-reflection-abby-li).
+- [Run evidence](docs/results/README.md): full-data metrics, audit results, and source hashes.
+- [Data-quality checks](docs/data_quality.md): validation rules, report structure, warnings, and limitations.
+
+## Implementation progress
+
+FR-1 through FR-3 are implemented: the pipeline prepares the data, runs both models, and saves raw and filtered rankings with evaluation results. NFR-1 and NFR-2 are covered by temporal-isolation, mapping, filtering, and invalid-input checks. For NFR-3, the documented workflow, pinned dependencies, sparse storage, and offline tests are in place. A fresh installation on another machine remains unverified.
+
+All 31 automated tests passed on November 21, including U-1 through U-3 and F-1 through F-3; none failed. The November 18 full-data run completed preparation and both models, with zero known-unavailable items in the filtered rankings. All 14 file hashes in its [integration record](docs/results/integration_2026-11-18.json) still matched during the November 21 check. That check reran the automated tests, not the full-data pipeline.
+
+Implementation exposed rules that needed to be explicit in the spec. Candidates must have training interactions, even though the ID mappings also contain future-only targets. Short rankings need unique IDs and `-1` padding. Unknown availability remains eligible, while unavailable future targets stay in the recall denominator. We added these rules to the spec; defining them before implementation would have made the pipeline interfaces and expected test results clearer.
+
+## Quick offline test run
+
+From the repository root, install dependencies if needed, then run the suite:
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements-lock.txt
+.venv/bin/python -m unittest discover -s tests -v
+```
+
+Dependency installation may require network access. The tests themselves use synthetic fixtures and require no network, Kaggle account, or dataset download. On November 21, 2026, all 31 tests passed with no failures or errors, including the six cases defined in the specification below. This check used the existing local environment.
+
+| Spec case | Test file | Exact method | Result |
+| --- | --- | --- | --- |
+| U-1 | [test_recommendation_models.py](tests/test_recommendation_models.py) | `AvailabilityTests.test_asof_join_uses_only_state_at_or_before_query_time` | Pass |
+| U-2 | [test_recommendation_models.py](tests/test_recommendation_models.py) | `AvailabilityTests.test_filter_excludes_known_unavailable_and_keeps_unknown` | Pass |
+| U-3 | [test_recommendation_models.py](tests/test_recommendation_models.py) | `AvailabilityTests.test_metrics_use_original_rank_and_known_relevance` | Pass |
+| F-1 | [test_pipeline.py](tests/test_pipeline.py) | `PipelineTests.test_f01_offline_acquisition_audit_and_temporal_preparation` | Pass |
+| F-2 | [test_pipeline.py](tests/test_pipeline.py) | `PipelineTests.test_f02_two_model_evaluation_with_small_catalog` | Pass |
+| F-3 | [test_pipeline.py](tests/test_pipeline.py) | `PipelineTests.test_f03_invalid_inputs_fail_without_success_metrics` | Pass |
+
 ## Data
 
 The four Kaggle CSV files belong in `data/raw/retailrocket/`:
@@ -64,7 +103,7 @@ Evaluation includes only visitors with both training history and future targets.
 - `outputs/evaluation_summary.json`: shared evaluation context.
 - `docs/results/`: small, versionable JSON snapshots from the checked full-data run.
 - `docs/project_spec.md`: requirements, schema, three diagram types, and selected test cases.
-- `docs/project_update.md`: evidence of progress and the remaining submission items.
+- `docs/project_update.md`: implementation progress, verification results, and team reflections.
 
 Availability is evaluated at the fixed training cutoff. Results are offline and do not estimate physical inventory or causal sales impact.
 

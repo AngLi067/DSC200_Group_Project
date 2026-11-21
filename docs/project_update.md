@@ -1,24 +1,10 @@
-# Project Update: Local Review Record
+# Project Update
 
-Updated: 2026-11-18. Working draft; no commit, push, or submission is implied by this document. The November 16 measurements below are retained as historical evidence.
+Updated: 2026-11-21. Full-data measurements below are dated November 16 and 18.
 
-## Rubric completion checklist
+Verification update, 2026-11-21: all 31 automated tests passed with no failures or errors, including U-1–U-3 and F-1–F-3. All 14 file hashes in the November 18 integration record match the current code, dependencies, and tests. The full-data pipeline was not rerun for this review.
 
-| Item | Current evidence | Remaining work |
-| --- | --- | --- |
-| Background, scope, boundaries | `project_spec.md` section 1 | Team review |
-| Work distribution | Task ownership and completion confirmed by Ang Li; recorded in spec section 1 | No member assignments pending |
-| 3 functional + 3 non-functional requirements | FR-1 to FR-3 and NFR-1 to NFR-3 with priority and verification | Team confirmation |
-| Data description, schema, storage, assumptions | Spec section 3 | Review assumptions against intended final scope |
-| 3 architecture diagram types | Activity, sequence, class diagrams; each has description and selection rationale | Verify rendering in final PDF |
-| 3 unit + 3 functional cases | Selected U-1/U-2/U-3 and F-1/F-2/F-3, with inputs, pre/postconditions, expectations | Preserve case IDs in final PDF |
-| Progress against spec | Status table below and test evidence | Recheck after further changes |
-| Personal development reflection | Ang Li's revised reflection and Wuxuan Wang's reflection transcribed from the supplied screenshot, included below | Final author review |
-| Final submission | Source and local evidence available | Combine spec (maximum 4 pages) and check-in into one PDF; prepare code ZIP or approved GitHub access |
-
-## Confirmed team contributions
-
-Ang Li reported the following completed responsibilities:
+## Team contributions
 
 | Member | Completed tasks |
 | --- | --- |
@@ -56,7 +42,7 @@ Run from the repository root:
 .venv/bin/python recommendation_models.py data/processed
 ```
 
-The November 16 regression suite contained 17 tests: 11 unit tests and 6 functional tests. All 17 passed on that date, including all six cases selected for grading. There were no observed failing tests in that run. No external download is required for the fixture tests; online Kaggle access is outside their coverage.
+The November 16 regression suite contained 17 tests: 11 unit tests and 6 functional tests. All 17 passed on that date, including U-1–U-3 and F-1–F-3. There were no observed failing tests in that run. No external download is required for the fixture tests; online Kaggle access is outside their coverage.
 
 The full-data audit, preparation, and both-model evaluation also completed successfully on 2026-11-16. The dataset contains 2,756,101 events, 1,407,580 visitors, and 235,061 event items. The split contains 2,204,881 training events and 551,220 test events; 212,916 items have training history, and 24,735 visitors qualify for evaluation. Of visitors with training history, 79.7% have only one distinct training item, so sparse-history behavior and popularity fallback matter.
 
@@ -75,13 +61,10 @@ The audit found zero invalid availability values and 167 category-property value
 
 ## Specification clarifications identified during implementation
 
-These are technical observations for the progress check, not a personal reflection:
-
 - A candidate universe must be defined separately from ID mappings. Mappings include future-only items so test targets can be represented, while candidates require training interactions.
 - A Top-K contract must define behavior for small or unavailable catalogs. The implementation now guarantees unique IDs and fixed-width arrays padded with `-1`.
 - A reproducible dataset workflow must materialize CSVs at the documented path. The downloader now supports both KaggleHub acquisition and offline local-cache copying.
 - The availability policy must state that unknown means eligible and that unavailable future targets remain in the relevance denominator. Otherwise, the filtered recall decrease can be misinterpreted.
-- Work distribution is confirmed by Ang Li, who also supplied the personal reflection below.
 
 ## Personal reflection (Ang Li)
 
